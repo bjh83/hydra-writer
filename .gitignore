@@ -1,0 +1,6 @@
+#text files
+*.txt
+
+#binary
+ssd_writer
+
