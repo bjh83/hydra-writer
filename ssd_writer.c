@@ -23,6 +23,12 @@ struct file_data {
 	char* data;
 };
 
+unsigned int conv_end(unsigned int number) {
+//	number = (number & 0x0000FFFF) << 16 | (number & 0xFFFF0000) >> 16;
+//	return (number & 0x00FF00FF) << 8 | (number & 0xFF00FF00) >> 8;
+	return number;
+}
+
 int pad(FILE* file, int num) {
 	int i;
 	for(i = 0; i < num; i++)
@@ -40,18 +46,24 @@ int magic(FILE* file) {
 
 int write_entry(FILE* file, entry_t* entry) {
 	magic(file);
+	unsigned int start = conv_end(entry->start);
+	unsigned int size = conv_end(entry->size);
 	fwrite((void*) entry->name, 1, 16, file);
-	fwrite((void*) &entry->start, 4, 1, file);
-	fwrite((void*) &entry->size, 4, 1, file);
+	fwrite((void*) &start, 4, 1, file);
+	fwrite((void*) &size, 4, 1, file);
 	pad(file, 4);
 	return 1;
 }
 
 int read_entry(FILE* file, entry_t* entry) {
 	fseek(file, 4, SEEK_CUR);
+	unsigned int start;
+	unsigned int size;
 	fread((void*) entry->name, 1, 16, file);
-	fread((void*) &entry->start, 4, 1, file);
-	fread((void*) &entry->size, 4, 1, file);
+	fread((void*) &start, 4, 1, file);
+	fread((void*) &size, 4, 1, file);
+	entry->start = conv_end(start);
+	entry->size = conv_end(size);
 	fseek(file, 4, SEEK_CUR);
 	return 1;
 }
@@ -59,8 +71,10 @@ int read_entry(FILE* file, entry_t* entry) {
 int write_index(FILE* file, struct index* file_index) {
 	rewind(file);
 	magic(file);
-	fwrite((void*) &file_index->size, 4, 1, file);
-	fwrite((void*) &file_index->entry_number, 4, 1, file);
+	unsigned int size = conv_end(file_index->size);
+	unsigned int entry_number = conv_end(file_index->entry_number);
+	fwrite((void*) &size, 4, 1, file);
+	fwrite((void*) &entry_number, 4, 1, file);
 	pad(file, 20);
 	if(file_index->entry_number > MAX_FILES) {
 		printf("ERROR: Too many files\n");
@@ -80,8 +94,12 @@ int write_index(FILE* file, struct index* file_index) {
 int read_index(FILE* file, struct index* file_index) {
 	rewind(file);
 	fseek(file, 4, SEEK_CUR);
-	fread((void*) &file_index->size, 4, 1, file);
-	fread((void*) &file_index->entry_number, 4, 1, file);
+	unsigned int size;
+	unsigned int entry_number;
+	fread((void*) &size, 4, 1, file);
+	fread((void*) &entry_number, 4, 1, file);
+	file_index->size = conv_end(size);
+	file_index->entry_number = conv_end(entry_number);
 	fseek(file, 20, SEEK_CUR);
 	if(file_index->entry_number > MAX_FILES) {
 		printf("ERROR: Too many files\n");
@@ -98,7 +116,8 @@ int read_index(FILE* file, struct index* file_index) {
 int write_file(FILE* file, struct file_data* data, unsigned int offset) {
 	fseek(file, offset, SEEK_SET);
 	magic(file);
-	if(fwrite((void*) &data->size, 4, 1, file) != 1) {	//Write size
+	unsigned int size = conv_end(data->size);
+	if(fwrite((void*) &size, 4, 1, file) != 1) {	//Write size
 		printf("Failed to write size\n");
 		exit(EXIT_FAILURE);
 	}
